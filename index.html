@@ -3,17 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <title>Song Quiz Test</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; }
-    button { margin: 10px; padding: 10px 20px; font-size: 16px; }
-    #micBtn { background-color: red; color: white; border-radius: 50%; width: 80px; height: 80px; font-size: 14px; }
-    #status { margin-top: 20px; font-size: 18px; }
+    body { font-family: Arial, sans-serif; text-align: center; background-color: #f8f9fa; }
+    h1 { margin-top: 20px; }
+    .mic-btn {
+      background-color: red; color: white;
+      border-radius: 50%; width: 80px; height: 80px;
+      font-size: 14px; border: none;
+    }
+    #progressContainer {
+      margin-top: 15px;
+      width: 300px;
+      margin-left: auto;
+      margin-right: auto;
+    }
   </style>
 </head>
 <body>
 
 <h1>🎵 Song Quiz 🎵</h1>
-<div id="screen"></div>
+<div id="screen" class="container"></div>
 
 <script>
 let screen = document.getElementById("screen");
@@ -22,15 +33,21 @@ let currentPlayer = 0;
 let genre = "";
 let scores = [];
 let recognition;
-let totalRounds = 5; // 5 rounds per player
-let currentRound = 1; // starts at round 1
-let clipCounter = 1; // total clip count across all players
+let totalRounds = 5;
+let currentRound = 1;
+let clipCounter = 1;
+let replayBtn;
+let progressBar;
+let progressTimer;
+let clipDuration = 5; // seconds
 
 function startGame() {
-  screen.innerHTML = "<h2>Select Number of Players</h2>" +
-    "<button onclick='setPlayers(2)'>2</button>" +
-    "<button onclick='setPlayers(3)'>3</button>" +
-    "<button onclick='setPlayers(4)'>4</button>";
+  screen.innerHTML = `
+    <h2>Select Number of Players</h2>
+    <button class="btn btn-primary btn-lg m-2" onclick='setPlayers(2)'>2</button>
+    <button class="btn btn-primary btn-lg m-2" onclick='setPlayers(3)'>3</button>
+    <button class="btn btn-primary btn-lg m-2" onclick='setPlayers(4)'>4</button>
+  `;
 }
 
 function setPlayers(num) {
@@ -40,8 +57,10 @@ function setPlayers(num) {
 }
 
 function selectGenre() {
-  screen.innerHTML = "<h2>Select Genre</h2>" +
-    "<button onclick='setGenre(\"Test Genre\")'>Test Genre</button>";
+  screen.innerHTML = `
+    <h2>Select Genre</h2>
+    <button class="btn btn-success btn-lg" onclick='setGenre("Test Genre")'>Test Genre</button>
+  `;
 }
 
 function setGenre(selected) {
@@ -56,23 +75,61 @@ function playTurn() {
   }
 
   let playerName = players[currentPlayer];
-  let song = {
-    title: "learning to fly",
-    artist: "tom petty"
-  };
+  let song = { title: "learning to fly", artist: "tom petty" };
   console.log(song.artist, song.title);
+
+  screen.innerHTML = `
+    <h2>${playerName}'s Turn — Round ${currentRound} of ${totalRounds}</h2>
+    <p>Guess the song and artist!</p>
+    <p>(Clip #${clipCounter})</p>
+
+    <div id="progressContainer">
+      <div class="progress">
+        <div id="clipProgress" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <button id="replayBtn" class="btn btn-outline-secondary mt-3" disabled>Replay Clip</button>
+
+    <div class="mt-4">
+      <button id="micBtn" class="mic-btn" onmousedown="startListening('${song.title}', '${song.artist}')" onmouseup="stopListening()">🎤</button>
+    </div>
+    <div id="status" class="mt-3 fs-5">Hold the mic to speak</div>
+
+    <p class="mt-4"><strong>Scores:</strong><br>${scores.map((s, i) => `${players[i]}: ${s}`).join(" | ")}</p>
+  `;
+
+  replayBtn = document.getElementById("replayBtn");
+  progressBar = document.getElementById("clipProgress");
+
+  replayBtn.addEventListener("click", () => {
+    if (!replayBtn.disabled) {
+      playClip();
+    }
+  });
+
+  playClip();
+}
+
+function playClip() {
+  replayBtn.disabled = true;
+  progressBar.style.width = "0%";
 
   playTestAudio(clipCounter);
 
-  screen.innerHTML = `<h2>${playerName}'s Turn — Round ${currentRound} of ${totalRounds}</h2>
-    <p>Guess the song and artist!</p>
-    <p>(Clip #${clipCounter})</p>
-    <button id="micBtn" onmousedown="startListening('${song.title}', '${song.artist}')" onmouseup="stopListening()">🎤</button>
-    <div id="status">Hold the mic to speak</div>
-    <p>Scores: ${scores.map((s, i) => `${players[i]}: ${s}`).join(" | ")}</p>`;
+  let elapsed = 0;
+  clearInterval(progressTimer);
+  progressTimer = setInterval(() => {
+    elapsed++;
+    let percent = (elapsed / clipDuration) * 100;
+    progressBar.style.width = `${percent}%`;
+    if (elapsed >= clipDuration) {
+      clearInterval(progressTimer);
+      replayBtn.disabled = false; // enable replay
+    }
+  }, 1000);
 }
 
-// Play "This is test audio X"
 function playTestAudio(num) {
   let utterance = new SpeechSynthesisUtterance(`This is test audio ${num}`);
   utterance.rate = 0.8;
@@ -93,7 +150,6 @@ function startListening(correctTitle, correctArtist) {
 
   recognition.onresult = function(event) {
     let transcript = event.results[0][0].transcript.toLowerCase();
-
     document.getElementById("status").innerText = "You said: " + transcript;
 
     let gotTitle = transcript.includes(correctTitle.toLowerCase());
@@ -104,10 +160,8 @@ function startListening(correctTitle, correctArtist) {
     else if (gotTitle || gotArtist) points = 10;
 
     scores[currentPlayer] += points;
-
     document.getElementById("status").innerText += ` → +${points} points!`;
 
-    // Move to next player/round after short delay
     setTimeout(() => {
       clipCounter++;
       currentPlayer++;
@@ -131,10 +185,13 @@ function showWinner() {
   let winners = players.filter((p, i) => scores[i] === maxScore);
   let winnerText = winners.length > 1 ? `It's a tie between ${winners.join(", ")}!` : `${winners[0]} wins!`;
 
-  screen.innerHTML = `<h2>Game Over!</h2>
-    <p>Final Scores:</p>
+  screen.innerHTML = `
+    <h2>🏆 Game Over! 🏆</h2>
+    <p><strong>Final Scores:</strong></p>
     <p>${scores.map((s, i) => `${players[i]}: ${s}`).join(" | ")}</p>
-    <h3>${winnerText}</h3>`;
+    <h3>${winnerText}</h3>
+    <button class="btn btn-primary mt-3" onclick="startGame()">Play Again</button>
+  `;
 }
 
 startGame();
