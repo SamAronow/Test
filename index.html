@@ -22,9 +22,10 @@ let currentPlayer = 0;
 let genre = "";
 let scores = [];
 let recognition;
-let songList = [];
+let totalRounds = 5; // 5 rounds per player
+let currentRound = 1; // starts at round 1
+let clipCounter = 1; // total clip count across all players
 
-// Step 1: Ask number of players
 function startGame() {
   screen.innerHTML = "<h2>Select Number of Players</h2>" +
     "<button onclick='setPlayers(2)'>2</button>" +
@@ -38,7 +39,6 @@ function setPlayers(num) {
   selectGenre();
 }
 
-// Step 2: Select genre
 function selectGenre() {
   screen.innerHTML = "<h2>Select Genre</h2>" +
     "<button onclick='setGenre(\"Test Genre\")'>Test Genre</button>";
@@ -46,40 +46,39 @@ function selectGenre() {
 
 function setGenre(selected) {
   genre = selected;
-  loadSongs();
-}
-
-// Step 3: Load songs (now fixed correct answer)
-function loadSongs() {
-  songList = [
-    {title: "test", artist: "audio"} // correct answer
-  ];
   playTurn();
 }
 
-// Step 4: Play spoken clip for current player
 function playTurn() {
+  if (currentRound > totalRounds) {
+    showWinner();
+    return;
+  }
+
   let playerName = players[currentPlayer];
-  let song = songList[0]; // always our test song
+  let song = {
+    title: "test audio",
+    artist: clipCounter.toString()
+  };
 
-  playTestAudio(); // Play 5 sec voice
+  playTestAudio(clipCounter);
 
-  screen.innerHTML = `<h2>${playerName}'s Turn</h2>
+  screen.innerHTML = `<h2>${playerName}'s Turn — Round ${currentRound} of ${totalRounds}</h2>
     <p>Guess the song and artist!</p>
+    <p>(Clip #${clipCounter})</p>
     <button id="micBtn" onmousedown="startListening('${song.title}', '${song.artist}')" onmouseup="stopListening()">🎤</button>
     <div id="status">Hold the mic to speak</div>
     <p>Scores: ${scores.map((s, i) => `${players[i]}: ${s}`).join(" | ")}</p>`;
 }
 
-// Generate a 5-second speech clip saying "This is a test audio"
-function playTestAudio() {
-  let utterance = new SpeechSynthesisUtterance("This is a test audio");
-  utterance.rate = 0.8; // slightly slower
+// Play "This is test audio X"
+function playTestAudio(num) {
+  let utterance = new SpeechSynthesisUtterance(`This is test audio ${num}`);
+  utterance.rate = 0.8;
   utterance.pitch = 1;
   speechSynthesis.speak(utterance);
 }
 
-// Step 5: Speech recognition
 function startListening(correctTitle, correctArtist) {
   if (!('webkitSpeechRecognition' in window)) {
     alert("Speech recognition not supported in this browser. Try Chrome.");
@@ -93,7 +92,7 @@ function startListening(correctTitle, correctArtist) {
 
   recognition.onresult = function(event) {
     let transcript = event.results[0][0].transcript.toLowerCase();
-    console.log("Recognized speech:", transcript); // Debug
+    console.log("Recognized speech:", transcript);
 
     document.getElementById("status").innerText = "You said: " + transcript;
 
@@ -109,8 +108,14 @@ function startListening(correctTitle, correctArtist) {
 
     document.getElementById("status").innerText += ` → +${points} points!`;
 
+    // Move to next player/round after short delay
     setTimeout(() => {
-      currentPlayer = (currentPlayer + 1) % players.length;
+      clipCounter++;
+      currentPlayer++;
+      if (currentPlayer >= players.length) {
+        currentPlayer = 0;
+        currentRound++;
+      }
       playTurn();
     }, 2000);
   };
@@ -120,6 +125,17 @@ function startListening(correctTitle, correctArtist) {
 
 function stopListening() {
   if (recognition) recognition.stop();
+}
+
+function showWinner() {
+  let maxScore = Math.max(...scores);
+  let winners = players.filter((p, i) => scores[i] === maxScore);
+  let winnerText = winners.length > 1 ? `It's a tie between ${winners.join(", ")}!` : `${winners[0]} wins!`;
+
+  screen.innerHTML = `<h2>Game Over!</h2>
+    <p>Final Scores:</p>
+    <p>${scores.map((s, i) => `${players[i]}: ${s}`).join(" | ")}</p>
+    <h3>${winnerText}</h3>`;
 }
 
 startGame();
