@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Song Quiz Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; }
+    button { margin: 10px; padding: 10px 20px; font-size: 16px; }
+    #micBtn { background-color: red; color: white; border-radius: 50%; width: 80px; height: 80px; font-size: 14px; }
+    #status { margin-top: 20px; font-size: 18px; }
+  </style>
+</head>
+<body>
+
+<h1>🎵 Song Quiz 🎵</h1>
+<div id="screen"></div>
+
+<script>
+let screen = document.getElementById("screen");
+let players = [];
+let currentPlayer = 0;
+let genre = "";
+let scores = [];
+let recognition;
+let songList = [];
+
+// Step 1: Ask number of players
+function startGame() {
+  screen.innerHTML = "<h2>Select Number of Players</h2>" +
+    "<button onclick='setPlayers(2)'>2</button>" +
+    "<button onclick='setPlayers(3)'>3</button>" +
+    "<button onclick='setPlayers(4)'>4</button>";
+}
+
+function setPlayers(num) {
+  players = Array.from({length: num}, (_, i) => `Player ${i+1}`);
+  scores = new Array(num).fill(0);
+  selectGenre();
+}
+
+// Step 2: Select genre
+function selectGenre() {
+  screen.innerHTML = "<h2>Select Genre</h2>" +
+    "<button onclick='setGenre(\"Test Genre\")'>Test Genre</button>";
+}
+
+function setGenre(selected) {
+  genre = selected;
+  loadSongs();
+}
+
+// Step 3: Load songs (now fixed correct answer)
+function loadSongs() {
+  songList = [
+    {title: "test", artist: "audio"} // correct answer
+  ];
+  playTurn();
+}
+
+// Step 4: Play spoken clip for current player
+function playTurn() {
+  let playerName = players[currentPlayer];
+  let song = songList[0]; // always our test song
+
+  playTestAudio(); // Play 5 sec voice
+
+  screen.innerHTML = `<h2>${playerName}'s Turn</h2>
+    <p>Guess the song and artist!</p>
+    <button id="micBtn" onmousedown="startListening('${song.title}', '${song.artist}')" onmouseup="stopListening()">🎤</button>
+    <div id="status">Hold the mic to speak</div>
+    <p>Scores: ${scores.map((s, i) => `${players[i]}: ${s}`).join(" | ")}</p>`;
+}
+
+// Generate a 5-second speech clip saying "This is a test audio"
+function playTestAudio() {
+  let utterance = new SpeechSynthesisUtterance("This is a test audio");
+  utterance.rate = 0.8; // slightly slower
+  utterance.pitch = 1;
+  speechSynthesis.speak(utterance);
+}
+
+// Step 5: Speech recognition
+function startListening(correctTitle, correctArtist) {
+  if (!('webkitSpeechRecognition' in window)) {
+    alert("Speech recognition not supported in this browser. Try Chrome.");
+    return;
+  }
+
+  recognition = new webkitSpeechRecognition();
+  recognition.lang = "en-US";
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onresult = function(event) {
+    let transcript = event.results[0][0].transcript.toLowerCase();
+    console.log("Recognized speech:", transcript); // Debug
+
+    document.getElementById("status").innerText = "You said: " + transcript;
+
+    let gotTitle = transcript.includes(correctTitle.toLowerCase());
+    let gotArtist = transcript.includes(correctArtist.toLowerCase());
+
+    let points = 0;
+    if (gotTitle && gotArtist) points = 20;
+    else if (gotTitle || gotArtist) points = 10;
+
+    scores[currentPlayer] += points;
+    console.log(`Scored ${points} points for ${players[currentPlayer]}`);
+
+    document.getElementById("status").innerText += ` → +${points} points!`;
+
+    setTimeout(() => {
+      currentPlayer = (currentPlayer + 1) % players.length;
+      playTurn();
+    }, 2000);
+  };
+
+  recognition.start();
+}
+
+function stopListening() {
+  if (recognition) recognition.stop();
+}
+
+startGame();
+</script>
+
+</body>
+</html>
