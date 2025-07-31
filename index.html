@@ -58,8 +58,9 @@ function playTurn() {
   let playerName = players[currentPlayer];
   let song = {
     title: "test audio",
-    artist: clipCounter.toString()
+    artist: "clip"+clipCounter.toString()
   };
+  console.log(artist, title);
 
   playTestAudio(clipCounter);
 
@@ -92,7 +93,6 @@ function startListening(correctTitle, correctArtist) {
 
   recognition.onresult = function(event) {
     let transcript = event.results[0][0].transcript.toLowerCase();
-    console.log("Recognized speech:", transcript);
 
     document.getElementById("status").innerText = "You said: " + transcript;
 
@@ -104,7 +104,6 @@ function startListening(correctTitle, correctArtist) {
     else if (gotTitle || gotArtist) points = 10;
 
     scores[currentPlayer] += points;
-    console.log(`Scored ${points} points for ${players[currentPlayer]}`);
 
     document.getElementById("status").innerText += ` → +${points} points!`;
 
